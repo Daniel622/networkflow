@@ -83,7 +83,6 @@
             flex: 1;
             position: relative;
             background: radial-gradient(circle at 50% 50%, #111a2f 0%, #0b1121 100%);
-            /* 新增：预留顶部距离给Header，以及居中布局防过度拉伸 */
             padding-top: 90px;
             padding-bottom: 20px;
             display: flex;
@@ -94,7 +93,8 @@
         .topology-container > svg {
             width: 100%;
             height: 100%;
-            max-width: 1600px;
+            /* 放宽最大限制以支持超宽屏饱满显示 */
+            max-width: 1800px;
             display: block;
         }
 
@@ -105,11 +105,11 @@
             flex-shrink: 0;
         }
 
-        /* SVG样式 */
+        /* SVG样式优化：全局加粗加大 */
         .static-line {
             fill: none;
             stroke: var(--line-color);
-            stroke-width: 2;
+            stroke-width: 3;
             transition: stroke 0.3s, opacity 0.3s;
         }
 
@@ -119,13 +119,13 @@
         }
         
         .dashed-line {
-            stroke-dasharray: 6 6;
+            stroke-dasharray: 8 8;
         }
 
         .node-circle {
             fill: var(--node-bg);
             stroke: var(--node-border);
-            stroke-width: 3;
+            stroke-width: 4;
             transition: all 0.3s ease;
         }
 
@@ -136,30 +136,33 @@
 
         .node-title {
             fill: var(--text-main);
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             text-anchor: middle;
+            letter-spacing: 1px;
         }
 
         .node-subtitle {
             fill: var(--text-sub);
-            font-size: 12px;
+            font-size: 14px;
             text-anchor: middle;
         }
 
         .line-label {
             fill: var(--text-sub);
-            font-size: 12px;
+            font-size: 14px;
+            font-weight: bold;
             text-anchor: middle;
             background: var(--bg-dark);
+            letter-spacing: 1px;
         }
 
         /* 动画与状态类 */
         .flow-path {
             fill: none;
-            stroke-width: 4;
+            stroke-width: 5;
             stroke-linecap: round;
-            stroke-dasharray: 10 20;
+            stroke-dasharray: 12 24;
             opacity: 0;
             transition: opacity 0.4s;
             animation: flowAnim 1s linear infinite;
@@ -167,7 +170,7 @@
 
         .flow-track {
             fill: none;
-            stroke-width: 4;
+            stroke-width: 5;
             opacity: 0;
             transition: opacity 0.4s;
         }
@@ -175,7 +178,7 @@
         .flow-active { opacity: 1; }
 
         @keyframes flowAnim {
-            from { stroke-dashoffset: 30; }
+            from { stroke-dashoffset: 36; }
             to { stroke-dashoffset: 0; }
         }
 
@@ -190,17 +193,17 @@
         .node.dimmed { opacity: 0.3; }
 
         /* 颜色定义 */
-        .stroke-oa { stroke: var(--color-oa); filter: drop-shadow(0 0 5px var(--color-oa)); }
-        .stroke-pr { stroke: var(--color-pr); filter: drop-shadow(0 0 5px var(--color-pr)); }
-        .stroke-vpn { stroke: var(--color-vpn); filter: drop-shadow(0 0 5px var(--color-vpn)); }
-        .stroke-wlan { stroke: var(--color-wlan); filter: drop-shadow(0 0 5px var(--color-wlan)); }
+        .stroke-oa { stroke: var(--color-oa); filter: drop-shadow(0 0 6px var(--color-oa)); }
+        .stroke-pr { stroke: var(--color-pr); filter: drop-shadow(0 0 6px var(--color-pr)); }
+        .stroke-vpn { stroke: var(--color-vpn); filter: drop-shadow(0 0 6px var(--color-vpn)); }
+        .stroke-wlan { stroke: var(--color-wlan); filter: drop-shadow(0 0 6px var(--color-wlan)); }
         
         .track-oa { stroke: rgba(0, 210, 255, 0.2); }
         .track-pr { stroke: rgba(255, 153, 0, 0.2); }
         .track-vpn { stroke: rgba(212, 0, 255, 0.2); }
         .track-wlan { stroke: rgba(0, 255, 102, 0.2); }
 
-        /* 底部控制面板 - 调整得更紧凑 */
+        /* 底部控制面板 */
         .controls {
             background: var(--bg-panel);
             padding: 15px 20px;
@@ -242,10 +245,10 @@
             opacity: 0;
             transition: opacity 0.3s;
             font-weight: bold;
-            font-size: 13px;
+            font-size: 14px;
         }
         .pop-label.show { opacity: 1; }
-        .label-bg { fill: rgba(0,0,0,0.8); rx: 4; ry: 4; stroke: var(--line-color); stroke-width: 1; }
+        .label-bg { fill: rgba(0,0,0,0.8); rx: 6; ry: 6; stroke: var(--line-color); stroke-width: 1; }
 
         /* AI 智能分析 UI 样式 */
         .ai-btn {
@@ -315,8 +318,8 @@
         .ai-content {
             overflow-y: auto;
             color: var(--text-main);
-            font-size: 14px;
-            line-height: 1.7;
+            font-size: 15px;
+            line-height: 1.8;
         }
         .ai-content strong { color: var(--color-oa); font-weight: bold; }
         .ai-loading {
@@ -345,255 +348,255 @@
     </div>
 
     <div class="topology-container">
-        <!-- SVG绘图区域，使用宽屏适用的 1200x900 viewBox -->
-        <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid meet">
+        <!-- SVG绘图区域：重构了极致比例的 1100x850 宽屏专属 ViewBox -->
+        <svg viewBox="50 50 1100 850" preserveAspectRatio="xMidYMid meet">
             <defs>
                 <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1"/>
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1"/>
                 </pattern>
                 
-                <!-- 图标集 -->
-                <g id="icon-cloud" transform="scale(1.2) translate(-12, -12)"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></g>
-                <g id="icon-hq" transform="scale(1.1) translate(-12, -12)"><path d="M4 2v20h16V2H4zm14 18H6V4h12v16zm-4-10H8v2h6v-2zm0 4H8v2h6v-2zM8 14v2h2v-2H8zM8 10v2h2v-2H8zM8 6v2h2V6H8z" fill="currentColor"/></g>
-                <g id="icon-shield" transform="scale(1.1) translate(-12, -12)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
-                <g id="icon-pulse" transform="scale(1.2) translate(-12, -12)"><path d="M2 12h5l2.5-6 4 13 3-7h5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-                <g id="icon-share" transform="scale(1.2) translate(-12, -12)"><circle cx="18" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="19" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" stroke-width="2"/></g>
-                <g id="icon-pc" transform="scale(1.1) translate(-12, -12)"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"/></g>
-                <g id="icon-factory" transform="scale(1.2) translate(-12, -12)"><path d="M2 20V8l6 4V8l6 4V4h8v16H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-                <g id="icon-camera" transform="scale(1.1) translate(-12, -12)"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/></g>
-                <g id="icon-wac" transform="scale(1.1) translate(-12, -12)"><path d="M5 12.55a11 11 0 0 1 14.08 0 M1.42 9a16 16 0 0 1 21.16 0 M8.53 16.11a6 6 0 0 1 6.95 0 M12 20h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
-                <g id="icon-ap" transform="scale(0.9) translate(-12, -12)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" fill="currentColor"/></g>
-                <g id="icon-mobile" transform="scale(1) translate(-12, -12)"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
-                <g id="icon-cross"><path d="M-12 -12 L 12 12 M 12 -12 L -12 12" stroke="var(--color-err)" stroke-width="4" stroke-linecap="round"/></g>
+                <!-- 图标集 (全面放大了 scale 的数值，解决图标太小问题) -->
+                <g id="icon-cloud" transform="scale(1.4) translate(-12, -12)"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></g>
+                <g id="icon-hq" transform="scale(1.3) translate(-12, -12)"><path d="M4 2v20h16V2H4zm14 18H6V4h12v16zm-4-10H8v2h6v-2zm0 4H8v2h6v-2zM8 14v2h2v-2H8zM8 10v2h2v-2H8zM8 6v2h2V6H8z" fill="currentColor"/></g>
+                <g id="icon-shield" transform="scale(1.3) translate(-12, -12)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+                <g id="icon-pulse" transform="scale(1.4) translate(-12, -12)"><path d="M2 12h5l2.5-6 4 13 3-7h5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+                <g id="icon-share" transform="scale(1.4) translate(-12, -12)"><circle cx="18" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="19" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" stroke-width="2"/></g>
+                <g id="icon-pc" transform="scale(1.3) translate(-12, -12)"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"/></g>
+                <g id="icon-factory" transform="scale(1.4) translate(-12, -12)"><path d="M2 20V8l6 4V8l6 4V4h8v16H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+                <g id="icon-camera" transform="scale(1.3) translate(-12, -12)"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/></g>
+                <g id="icon-wac" transform="scale(1.3) translate(-12, -12)"><path d="M5 12.55a11 11 0 0 1 14.08 0 M1.42 9a16 16 0 0 1 21.16 0 M8.53 16.11a6 6 0 0 1 6.95 0 M12 20h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+                <g id="icon-ap" transform="scale(1.1) translate(-12, -12)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" fill="currentColor"/></g>
+                <g id="icon-mobile" transform="scale(1.2) translate(-12, -12)"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+                <g id="icon-cross" transform="scale(1.2)"><path d="M-12 -12 L 12 12 M 12 -12 L -12 12" stroke="var(--color-err)" stroke-width="4" stroke-linecap="round"/></g>
             </defs>
 
             <!-- 背景网格 -->
             <rect width="100%" height="100%" fill="url(#grid)" />
 
-            <!-- 1. 静态物理连线层 (纵向坐标均已压缩) -->
+            <!-- 1. 静态物理连线层 (横坐标已进行超宽比例延展) -->
             <g id="layer-static-lines">
                 <!-- 垂直骨干链路 -->
-                <path class="static-line" d="M 600 100 L 400 220" /> <!-- Net - FW1 -->
-                <path class="static-line" d="M 600 100 L 800 220" /> <!-- Net - FW2 -->
-                <path class="static-line dashed-line" d="M 800 100 L 400 220" /> <!-- HQ - FW1 -->
-                <path class="static-line dashed-line" d="M 800 100 L 800 220" /> <!-- HQ - FW2 -->
+                <path class="static-line" d="M 600 100 L 350 220" /> <!-- Net - FW1 -->
+                <path class="static-line" d="M 600 100 L 850 220" /> <!-- Net - FW2 -->
+                <path class="static-line dashed-line" d="M 850 100 L 350 220" /> <!-- HQ - FW1 -->
+                <path class="static-line dashed-line" d="M 850 100 L 850 220" /> <!-- HQ - FW2 -->
 
-                <path class="static-line" d="M 400 220 L 400 340" /> <!-- FW1 - AC1 -->
-                <path class="static-line" d="M 800 220 L 800 340" /> <!-- FW2 - AC2 -->
+                <path class="static-line" d="M 350 220 L 350 340" /> <!-- FW1 - AC1 -->
+                <path class="static-line" d="M 850 220 L 850 340" /> <!-- FW2 - AC2 -->
                 
-                <path class="static-line" d="M 400 340 L 400 460" /> <!-- AC1 - Core1 -->
-                <path class="static-line" d="M 800 340 L 800 460" /> <!-- AC2 - Core2 -->
+                <path class="static-line" d="M 350 340 L 350 460" /> <!-- AC1 - Core1 -->
+                <path class="static-line" d="M 850 340 L 850 460" /> <!-- AC2 - Core2 -->
 
                 <!-- 无线控制器旁挂 -->
-                <path class="static-line" d="M 400 460 L 200 390" /> <!-- Core1 - WAC1 -->
-                <path class="static-line" d="M 800 460 L 200 530" /> <!-- Core2 - WAC2 -->
+                <path class="static-line" d="M 350 460 L 150 390" /> <!-- Core1 - WAC1 -->
+                <path class="static-line" d="M 850 460 L 150 530" /> <!-- Core2 - WAC2 -->
 
                 <!-- 水平冗余链路 -->
-                <path class="static-line dashed-line" d="M 435 220 L 765 220" /> <!-- FW HA -->
-                <text x="600" y="210" class="line-label">HRP 心跳线</text>
+                <path class="static-line dashed-line" d="M 390 220 L 810 220" /> <!-- FW HA -->
+                <text x="600" y="212" class="line-label">HRP 心跳线</text>
 
-                <path class="static-line dashed-line" d="M 435 340 L 765 340" /> <!-- AC Sync -->
-                <text x="600" y="330" class="line-label">同步线</text>
+                <path class="static-line dashed-line" d="M 390 340 L 810 340" /> <!-- AC Sync -->
+                <text x="600" y="332" class="line-label">同步线</text>
 
-                <path class="static-line dashed-line" stroke-width="4" d="M 435 460 L 765 460" /> <!-- Core Peer-link -->
-                <text x="600" y="450" class="line-label">Peer-link</text>
+                <path class="static-line dashed-line" stroke-width="4" d="M 390 460 L 810 460" /> <!-- Core Peer-link -->
+                <text x="600" y="452" class="line-label">Peer-link</text>
 
-                <path class="static-line dashed-line" d="M 200 390 L 200 530" /> <!-- WAC HA -->
-                <text x="210" y="465" class="line-label" style="text-anchor: start;">WAC 同步线</text>
+                <path class="static-line dashed-line" d="M 150 390 L 150 530" /> <!-- WAC HA -->
+                <text x="160" y="465" class="line-label" style="text-anchor: start;">WAC 同步线</text>
 
                 <!-- 接入层双归属链路 -->
-                <path class="static-line" d="M 400 460 L 250 630" /> <!-- Core1 - OA -->
-                <path class="static-line" d="M 400 460 L 500 630" /> <!-- Core1 - PR -->
-                <path class="static-line" d="M 400 460 L 750 630" /> <!-- Core1 - POE -->
-                <path class="static-line" d="M 400 460 L 950 630" /> <!-- Core1 - SP -->
+                <path class="static-line" d="M 350 460 L 150 630" /> <!-- Core1 - OA -->
+                <path class="static-line" d="M 350 460 L 450 630" /> <!-- Core1 - PR -->
+                <path class="static-line" d="M 350 460 L 750 630" /> <!-- Core1 - POE -->
+                <path class="static-line" d="M 350 460 L 1050 630" /> <!-- Core1 - SP -->
 
-                <path class="static-line" d="M 800 460 L 250 630" /> <!-- Core2 - OA -->
-                <path class="static-line" d="M 800 460 L 500 630" /> <!-- Core2 - PR -->
-                <path class="static-line" d="M 800 460 L 750 630" /> <!-- Core2 - POE -->
-                <path class="static-line" d="M 800 460 L 950 630" /> <!-- Core2 - SP -->
+                <path class="static-line" d="M 850 460 L 150 630" /> <!-- Core2 - OA -->
+                <path class="static-line" d="M 850 460 L 450 630" /> <!-- Core2 - PR -->
+                <path class="static-line" d="M 850 460 L 750 630" /> <!-- Core2 - POE -->
+                <path class="static-line" d="M 850 460 L 1050 630" /> <!-- Core2 - SP -->
 
                 <!-- 无线接入链路 -->
                 <path class="static-line" d="M 750 630 L 750 730" /> <!-- POE - AP -->
-                <path class="static-line dashed-line" d="M 750 730 L 650 820" /> <!-- AP - OA WLAN -->
-                <path class="static-line dashed-line" d="M 750 730 L 850 820" /> <!-- AP - PR WLAN -->
+                <path class="static-line dashed-line" d="M 750 730 L 600 820" /> <!-- AP - OA WLAN -->
+                <path class="static-line dashed-line" d="M 750 730 L 900 820" /> <!-- AP - PR WLAN -->
 
                 <!-- 预埋隧道标线 -->
-                <path id="tunnel-vpn" class="tunnel-line dashed-line stroke-vpn" stroke-width="4" style="opacity: 0;" d="M 400 220 L 800 100" />
-                <path id="tunnel-capwap" class="tunnel-line" stroke="var(--color-capwap)" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter" style="opacity: 0;" d="M 750 730 L 750 630 L 400 460 L 200 390" />
+                <path id="tunnel-vpn" class="tunnel-line dashed-line stroke-vpn" stroke-width="5" style="opacity: 0;" d="M 350 220 L 850 100" />
+                <path id="tunnel-capwap" class="tunnel-line" stroke="var(--color-capwap)" stroke-width="18" stroke-linecap="square" stroke-linejoin="miter" style="opacity: 0;" d="M 750 730 L 750 630 L 350 460 L 150 390" />
             </g>
 
-            <!-- 2. 动态流量动画层 (路径同步更新) -->
+            <!-- 2. 动态流量动画层 -->
             <g id="layer-flows">
                 <g class="flow-group" id="flow-oa-net">
-                    <path class="flow-track track-oa" d="M 250 630 L 400 460 L 400 340 L 400 220 L 600 100" />
-                    <path class="flow-path stroke-oa" d="M 250 630 L 400 460 L 400 340 L 400 220 L 600 100" />
+                    <path class="flow-track track-oa" d="M 150 630 L 350 460 L 350 340 L 350 220 L 600 100" />
+                    <path class="flow-path stroke-oa" d="M 150 630 L 350 460 L 350 340 L 350 220 L 600 100" />
                 </g>
 
                 <g class="flow-group" id="flow-oa-pr">
-                    <path class="flow-track track-oa" d="M 250 630 L 400 460 L 400 340 L 400 220" />
-                    <path class="flow-path stroke-oa" d="M 250 630 L 400 460 L 400 340 L 400 220" />
-                    <path class="flow-track track-pr" d="M 400 220 L 400 340 L 400 460 L 500 630" />
-                    <path class="flow-path stroke-pr" d="M 400 220 L 400 340 L 400 460 L 500 630" />
+                    <path class="flow-track track-oa" d="M 150 630 L 350 460 L 350 340 L 350 220" />
+                    <path class="flow-path stroke-oa" d="M 150 630 L 350 460 L 350 340 L 350 220" />
+                    <path class="flow-track track-pr" d="M 350 220 L 350 340 L 350 460 L 450 630" />
+                    <path class="flow-path stroke-pr" d="M 350 220 L 350 340 L 350 460 L 450 630" />
                 </g>
 
                 <g class="flow-group" id="flow-vpn">
-                    <path class="flow-track track-oa" d="M 250 630 L 400 460 L 400 340 L 400 220" />
-                    <path class="flow-path stroke-oa" d="M 250 630 L 400 460 L 400 340 L 400 220" />
-                    <path class="flow-track track-pr" d="M 500 630 L 400 460 L 400 340 L 400 220" />
-                    <path class="flow-path stroke-pr" d="M 500 630 L 400 460 L 400 340 L 400 220" />
-                    <path class="flow-track track-vpn" d="M 400 220 L 800 100" />
-                    <path class="flow-path stroke-vpn" d="M 400 220 L 800 100" />
+                    <path class="flow-track track-oa" d="M 150 630 L 350 460 L 350 340 L 350 220" />
+                    <path class="flow-path stroke-oa" d="M 150 630 L 350 460 L 350 340 L 350 220" />
+                    <path class="flow-track track-pr" d="M 450 630 L 350 460 L 350 340 L 350 220" />
+                    <path class="flow-path stroke-pr" d="M 450 630 L 350 460 L 350 340 L 350 220" />
+                    <path class="flow-track track-vpn" d="M 350 220 L 850 100" />
+                    <path class="flow-path stroke-vpn" d="M 350 220 L 850 100" />
                 </g>
 
                 <g class="flow-group" id="flow-backup">
-                    <path class="flow-track track-oa" d="M 250 630 L 800 460 L 800 340 L 800 220 L 600 100" />
-                    <path class="flow-path stroke-oa" d="M 250 630 L 800 460 L 800 340 L 800 220 L 600 100" />
+                    <path class="flow-track track-oa" d="M 150 630 L 850 460 L 850 340 L 850 220 L 600 100" />
+                    <path class="flow-path stroke-oa" d="M 150 630 L 850 460 L 850 340 L 850 220 L 600 100" />
                 </g>
 
                 <g class="flow-group" id="flow-fw-fail">
-                    <path class="flow-track track-oa" d="M 250 630 L 400 460 L 800 460 L 800 340 L 800 220 L 600 100" />
-                    <path class="flow-path stroke-oa" d="M 250 630 L 400 460 L 800 460 L 800 340 L 800 220 L 600 100" />
+                    <path class="flow-track track-oa" d="M 150 630 L 350 460 L 850 460 L 850 340 L 850 220 L 600 100" />
+                    <path class="flow-path stroke-oa" d="M 150 630 L 350 460 L 850 460 L 850 340 L 850 220 L 600 100" />
                 </g>
 
                 <g class="flow-group" id="flow-wlan">
-                    <path class="flow-track track-wlan" d="M 650 820 L 750 730 L 750 630 L 400 460 L 200 390 L 400 460 L 400 340 L 400 220 L 600 100" />
-                    <path class="flow-path stroke-wlan" d="M 650 820 L 750 730 L 750 630 L 400 460 L 200 390 L 400 460 L 400 340 L 400 220 L 600 100" />
+                    <path class="flow-track track-wlan" d="M 600 820 L 750 730 L 750 630 L 350 460 L 150 390 L 350 460 L 350 340 L 350 220 L 600 100" />
+                    <path class="flow-path stroke-wlan" d="M 600 820 L 750 730 L 750 630 L 350 460 L 150 390 L 350 460 L 350 340 L 350 220 L 600 100" />
                 </g>
             </g>
 
-            <!-- 3. 节点定义层 (纵向坐标同步压缩) -->
+            <!-- 3. 节点定义层 (整体放大了所有的节点半径 R) -->
             <g id="layer-nodes">
                 <g class="node" id="node-net" transform="translate(600, 100)">
-                    <circle class="node-circle" r="35" />
+                    <circle class="node-circle" r="42" />
                     <use href="#icon-cloud" class="node-icon" />
-                    <text y="55" class="node-title">互联网出口</text>
-                    <text y="75" class="node-subtitle">Internet</text>
+                    <text y="65" class="node-title">互联网出口</text>
+                    <text y="85" class="node-subtitle">Internet</text>
                 </g>
 
-                <g class="node" id="node-hq" transform="translate(800, 100)">
-                    <circle class="node-circle" r="35" />
+                <g class="node" id="node-hq" transform="translate(850, 100)">
+                    <circle class="node-circle" r="42" />
                     <use href="#icon-hq" class="node-icon" />
-                    <text y="55" class="node-title">总部网络</text>
-                    <text y="75" class="node-subtitle">HQ</text>
+                    <text y="65" class="node-title">总部网络</text>
+                    <text y="85" class="node-subtitle">HQ</text>
                 </g>
 
-                <g class="node" id="node-fw1" transform="translate(400, 220)">
-                    <circle class="node-circle" r="35" />
+                <g class="node" id="node-fw1" transform="translate(350, 220)">
+                    <circle class="node-circle" r="42" />
                     <use href="#icon-shield" class="node-icon" />
                     <use href="#icon-cross" class="error-cross" />
-                    <text y="55" class="node-title">FW1</text>
-                    <text y="75" class="node-subtitle" id="label-fw1-status">(Active)</text>
+                    <text y="65" class="node-title">FW1</text>
+                    <text y="85" class="node-subtitle" id="label-fw1-status">(Active)</text>
                 </g>
 
-                <g class="node" id="node-fw2" transform="translate(800, 220)">
-                    <circle class="node-circle" r="35" />
+                <g class="node" id="node-fw2" transform="translate(850, 220)">
+                    <circle class="node-circle" r="42" />
                     <use href="#icon-shield" class="node-icon" />
-                    <text y="55" class="node-title">FW2</text>
-                    <text y="75" class="node-subtitle" id="label-fw2-status">(Standby)</text>
+                    <text y="65" class="node-title">FW2</text>
+                    <text y="85" class="node-subtitle" id="label-fw2-status">(Standby)</text>
                 </g>
 
-                <g class="node" id="node-ac1" transform="translate(400, 340)">
-                    <circle class="node-circle" r="35" />
+                <g class="node" id="node-ac1" transform="translate(350, 340)">
+                    <circle class="node-circle" r="42" />
                     <use href="#icon-pulse" class="node-icon" />
                     <use href="#icon-cross" class="error-cross" />
-                    <text y="55" class="node-title">AC1</text>
-                    <text y="75" class="node-subtitle">(深信服Audit)</text>
+                    <text y="65" class="node-title">AC1</text>
+                    <text y="85" class="node-subtitle">(深信服Audit)</text>
                 </g>
 
-                <g class="node" id="node-ac2" transform="translate(800, 340)">
-                    <circle class="node-circle" r="35" />
+                <g class="node" id="node-ac2" transform="translate(850, 340)">
+                    <circle class="node-circle" r="42" />
                     <use href="#icon-pulse" class="node-icon" />
-                    <text y="55" class="node-title">AC2</text>
-                    <text y="75" class="node-subtitle">(深信服Audit)</text>
+                    <text y="65" class="node-title">AC2</text>
+                    <text y="85" class="node-subtitle">(深信服Audit)</text>
                 </g>
 
-                <g class="node" id="node-core1" transform="translate(400, 460)">
-                    <circle class="node-circle" r="35" />
+                <g class="node" id="node-core1" transform="translate(350, 460)">
+                    <circle class="node-circle" r="42" />
                     <use href="#icon-share" class="node-icon" />
                     <use href="#icon-cross" class="error-cross" />
-                    <text y="55" class="node-title">Core1</text>
-                    <text y="75" class="node-subtitle">(M-LAG)</text>
+                    <text y="65" class="node-title">Core1</text>
+                    <text y="85" class="node-subtitle">(M-LAG)</text>
                 </g>
 
-                <g class="node" id="node-core2" transform="translate(800, 460)">
-                    <circle class="node-circle" r="35" />
+                <g class="node" id="node-core2" transform="translate(850, 460)">
+                    <circle class="node-circle" r="42" />
                     <use href="#icon-share" class="node-icon" />
-                    <text y="55" class="node-title">Core2</text>
-                    <text y="75" class="node-subtitle">(M-LAG)</text>
+                    <text y="65" class="node-title">Core2</text>
+                    <text y="85" class="node-subtitle">(M-LAG)</text>
                 </g>
 
-                <g class="node" id="node-wac1" transform="translate(200, 390)">
-                    <circle class="node-circle" r="28" />
+                <g class="node" id="node-wac1" transform="translate(150, 390)">
+                    <circle class="node-circle" r="32" />
                     <use href="#icon-wac" class="node-icon" />
-                    <text y="45" class="node-title">无线AC1</text>
+                    <text y="55" class="node-title">无线AC1</text>
                 </g>
 
-                <g class="node" id="node-wac2" transform="translate(200, 530)">
-                    <circle class="node-circle" r="28" />
+                <g class="node" id="node-wac2" transform="translate(150, 530)">
+                    <circle class="node-circle" r="32" />
                     <use href="#icon-wac" class="node-icon" />
-                    <text y="45" class="node-title">无线AC2</text>
+                    <text y="55" class="node-title">无线AC2</text>
                 </g>
 
-                <g class="node" id="node-oa" transform="translate(250, 630)">
-                    <circle class="node-circle" r="28" />
+                <g class="node" id="node-oa" transform="translate(150, 630)">
+                    <circle class="node-circle" r="32" />
                     <use href="#icon-pc" class="node-icon" />
-                    <text y="45" class="node-title">OA 办公接入</text>
+                    <text y="55" class="node-title">OA 办公接入</text>
                 </g>
 
-                <g class="node" id="node-pr" transform="translate(500, 630)">
-                    <circle class="node-circle" r="28" />
+                <g class="node" id="node-pr" transform="translate(450, 630)">
+                    <circle class="node-circle" r="32" />
                     <use href="#icon-factory" class="node-icon" />
-                    <text y="45" class="node-title">PR 生产接入</text>
+                    <text y="55" class="node-title">PR 生产接入</text>
                 </g>
 
                 <g class="node" id="node-poe" transform="translate(750, 630)">
-                    <circle class="node-circle" r="28" />
+                    <circle class="node-circle" r="32" />
                     <use href="#icon-share" class="node-icon" />
-                    <text y="45" class="node-title">POE 交换机</text>
+                    <text y="55" class="node-title">POE 交换机</text>
                 </g>
 
-                <g class="node" id="node-sp" transform="translate(950, 630)">
-                    <circle class="node-circle" r="28" />
+                <g class="node" id="node-sp" transform="translate(1050, 630)">
+                    <circle class="node-circle" r="32" />
                     <use href="#icon-camera" class="node-icon" />
-                    <text y="45" class="node-title">SP 安防接入</text>
+                    <text y="55" class="node-title">SP 安防接入</text>
                 </g>
 
                 <g class="node" id="node-ap" transform="translate(750, 730)">
-                    <circle class="node-circle" r="20" style="fill: #1a2a47" />
+                    <circle class="node-circle" r="24" style="fill: #1a2a47" />
                     <use href="#icon-ap" class="node-icon" />
-                    <text x="35" y="5" class="node-subtitle" style="text-anchor: start;">室内AP</text>
+                    <text x="40" y="5" class="node-subtitle" style="text-anchor: start;">室内AP</text>
                 </g>
 
-                <g class="node" id="node-wlan-oa" transform="translate(650, 820)">
-                    <circle class="node-circle" r="20" style="fill: #1a2a47" />
+                <g class="node" id="node-wlan-oa" transform="translate(600, 820)">
+                    <circle class="node-circle" r="24" style="fill: #1a2a47" />
                     <use href="#icon-mobile" class="node-icon" />
-                    <text y="35" class="node-subtitle">OA无线</text>
+                    <text y="42" class="node-subtitle">OA无线</text>
                 </g>
 
-                <g class="node" id="node-wlan-pr" transform="translate(850, 820)">
-                    <circle class="node-circle" r="20" style="fill: #1a2a47" />
+                <g class="node" id="node-wlan-pr" transform="translate(900, 820)">
+                    <circle class="node-circle" r="24" style="fill: #1a2a47" />
                     <use href="#icon-mobile" class="node-icon" />
-                    <text y="35" class="node-subtitle">生产无线</text>
+                    <text y="42" class="node-subtitle">生产无线</text>
                 </g>
             </g>
 
             <!-- 4. 弹出式提示标签层 -->
             <g id="layer-labels">
-                <g class="pop-label" id="label-acl" transform="translate(340, 180)">
-                    <rect class="label-bg" width="120" height="26" x="0" y="-18"/>
-                    <text x="60" y="0" fill="#ff3333" text-anchor="middle">❌ 隔离策略阻断</text>
+                <g class="pop-label" id="label-acl" transform="translate(350, 160)">
+                    <rect class="label-bg" width="130" height="30" x="0" y="-20"/>
+                    <text x="65" y="0" fill="#ff3333" text-anchor="middle">❌ 隔离策略阻断</text>
                 </g>
-                <g class="pop-label" id="label-vpn" transform="translate(530, 140)">
-                    <rect class="label-bg" width="140" height="26" x="0" y="-18"/>
-                    <text x="70" y="0" fill="#d400ff" text-anchor="middle">🔒 IPSec VPN 加密</text>
+                <g class="pop-label" id="label-vpn" transform="translate(560, 140)">
+                    <rect class="label-bg" width="150" height="30" x="0" y="-20"/>
+                    <text x="75" y="0" fill="#d400ff" text-anchor="middle">🔒 IPSec VPN 加密</text>
                 </g>
-                <g class="pop-label" id="label-capwap" transform="translate(450, 560)">
-                    <rect class="label-bg" width="160" height="26" x="0" y="-18"/>
-                    <text x="80" y="0" fill="#00ff66" text-anchor="middle">🟢 无线业务流量</text>
+                <g class="pop-label" id="label-capwap" transform="translate(420, 560)">
+                    <rect class="label-bg" width="140" height="30" x="0" y="-20"/>
+                    <text x="70" y="0" fill="#00ff66" text-anchor="middle">🟢 无线业务流量</text>
                 </g>
-                <g class="pop-label" id="label-tunnel" transform="translate(620, 590)">
-                    <rect class="label-bg" width="160" height="26" x="0" y="-18"/>
-                    <text x="80" y="0" fill="#b45f06" text-anchor="middle">🟤 CAPWAP 隧道</text>
+                <g class="pop-label" id="label-tunnel" transform="translate(580, 590)">
+                    <rect class="label-bg" width="150" height="30" x="0" y="-20"/>
+                    <text x="75" y="0" fill="#b45f06" text-anchor="middle">🟤 CAPWAP 隧道</text>
                 </g>
             </g>
 
