@@ -1,272 +1,712 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>园区网流量路径逻辑演示</title>
-  
-  <!-- 引入 Tailwind CSS 进行极速样式构建 -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- 引入 Lucide 图标库 -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>园区网流量路径逻辑演示</title>
+    <style>
+        :root {
+            --bg-dark: #0b1121;
+            --bg-panel: #111a2f;
+            --line-color: #2e4370;
+            --text-main: #e2e8f0;
+            --text-sub: #94a3b8;
+            --node-bg: #152039;
+            --node-border: #3b5a94;
+            --color-oa: #00d2ff;
+            --color-pr: #ff9900;
+            --color-vpn: #d400ff;
+            --color-wlan: #00ff66;
+            --color-capwap: #b45f06;
+            --color-err: #ff3333;
+            --font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
 
-  <style>
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .animate-fade-in-up {
-      animation: fadeInUp 0.4s ease-out forwards;
-    }
-    /* 保证外国对象(foreignObject)内部HTML正确渲染 */
-    foreignObject { overflow: visible; }
-  </style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 顶部信息栏 */
+        .header {
+            position: absolute;
+            top: 30px;
+            left: 40px;
+            right: 40px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+            margin-bottom: 8px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+
+        .header-title p {
+            font-size: 14px;
+            color: var(--text-sub);
+            transition: color 0.3s;
+        }
+
+        .header-status {
+            text-align: right;
+            font-size: 13px;
+        }
+        
+        .header-status div {
+            margin-bottom: 6px;
+            color: var(--text-sub);
+        }
+
+        .header-status span {
+            color: var(--color-oa);
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        /* 拓扑图容器 */
+        .topology-container {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at 50% 50%, #111a2f 0%, #0b1121 100%);
+        }
+
+        /* 修复：仅让拓扑图容器内的 SVG 撑满，不影响其他图标 */
+        .topology-container > svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 严格限制标题图标大小 */
+        .header-title h1 svg {
+            width: 26px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        /* SVG样式 */
+        .static-line {
+            fill: none;
+            stroke: var(--line-color);
+            stroke-width: 2;
+            transition: stroke 0.3s, opacity 0.3s;
+        }
+
+        /* 新增：专用于隧道的线条类，防止被 static-line 的 2px 宽度覆盖 */
+        .tunnel-line {
+            fill: none;
+            transition: opacity 0.3s;
+        }
+        
+        .dashed-line {
+            stroke-dasharray: 6 6;
+        }
+
+        .node-circle {
+            fill: var(--node-bg);
+            stroke: var(--node-border);
+            stroke-width: 3;
+            transition: all 0.3s ease;
+        }
+
+        .node-icon {
+            fill: #fff;
+            transition: all 0.3s ease;
+        }
+
+        .node-title {
+            fill: var(--text-main);
+            font-size: 16px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+
+        .node-subtitle {
+            fill: var(--text-sub);
+            font-size: 12px;
+            text-anchor: middle;
+        }
+
+        .line-label {
+            fill: var(--text-sub);
+            font-size: 12px;
+            text-anchor: middle;
+            background: var(--bg-dark);
+        }
+
+        /* 动画与状态类 */
+        .flow-path {
+            fill: none;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 10 20;
+            opacity: 0;
+            transition: opacity 0.4s;
+            animation: flowAnim 1s linear infinite;
+        }
+
+        .flow-track {
+            fill: none;
+            stroke-width: 4;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .flow-active { opacity: 1; }
+
+        @keyframes flowAnim {
+            from { stroke-dashoffset: 30; }
+            to { stroke-dashoffset: 0; }
+        }
+
+        .node.failed .node-circle {
+            stroke: var(--color-err);
+            fill: rgba(255, 51, 51, 0.1);
+        }
+        .node.failed .node-icon { fill: var(--color-err); }
+        .node.failed .node-title { fill: var(--color-err); }
+        .error-cross { opacity: 0; transition: opacity 0.3s; }
+        .node.failed .error-cross { opacity: 1; }
+        .node.dimmed { opacity: 0.3; }
+
+        /* 颜色定义 */
+        .stroke-oa { stroke: var(--color-oa); filter: drop-shadow(0 0 5px var(--color-oa)); }
+        .stroke-pr { stroke: var(--color-pr); filter: drop-shadow(0 0 5px var(--color-pr)); }
+        .stroke-vpn { stroke: var(--color-vpn); filter: drop-shadow(0 0 5px var(--color-vpn)); }
+        .stroke-wlan { stroke: var(--color-wlan); filter: drop-shadow(0 0 5px var(--color-wlan)); }
+        
+        .track-oa { stroke: rgba(0, 210, 255, 0.2); }
+        .track-pr { stroke: rgba(255, 153, 0, 0.2); }
+        .track-vpn { stroke: rgba(212, 0, 255, 0.2); }
+        .track-wlan { stroke: rgba(0, 255, 102, 0.2); }
+
+        /* 底部控制面板 */
+        .controls {
+            background: var(--bg-panel);
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            border-top: 1px solid var(--line-color);
+            z-index: 20;
+        }
+
+        .btn {
+            background: transparent;
+            color: var(--text-sub);
+            border: 1px solid var(--line-color);
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            border-color: #5572b4;
+        }
+
+        .btn.active {
+            background: rgba(0, 210, 255, 0.1);
+            color: var(--color-oa);
+            border-color: var(--color-oa);
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
+        }
+
+        /* 弹出的标签样式 */
+        .pop-label {
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .pop-label.show { opacity: 1; }
+        .label-bg { fill: rgba(0,0,0,0.8); rx: 4; ry: 4; stroke: var(--line-color); stroke-width: 1; }
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-200 font-sans p-6 min-h-screen flex flex-col items-center">
+<body>
 
-  <div class="w-full max-w-6xl space-y-6">
-    <!-- 顶部状态面板 -->
-    <div class="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-end backdrop-blur-sm">
-      <div>
-        <h1 class="text-2xl font-bold tracking-wider text-white flex items-center">
-          <i data-lucide="activity" class="text-sky-400 mr-3 animate-pulse"></i>
-          园区网流量路径逻辑演示
-        </h1>
-        <p id="scenario-desc" class="text-slate-400 mt-2 text-sm max-w-2xl"></p>
-      </div>
-      <div class="flex space-x-8 mt-4 md:mt-0 text-right">
-        <div>
-          <div class="text-slate-500 text-xs font-medium uppercase tracking-widest">当前模式</div>
-          <div id="status-name" class="text-sky-400 font-semibold"></div>
+    <div class="header">
+        <div class="header-title">
+            <h1>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-oa)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                园区网流量路径逻辑演示
+            </h1>
+            <p id="desc-text">全网拓扑运行正常，主备链路状态良好，等待业务流量接入。</p>
         </div>
-        <div>
-          <div class="text-slate-500 text-xs font-medium uppercase tracking-widest">核心状态</div>
-          <div id="core-status" class="font-semibold"></div>
+        <div class="header-status">
+            <div>当前模式 <span id="mode-text">正常就绪</span></div>
+            <div>核心状态 <span id="core-text">双机冗余 (M-LAG)</span></div>
         </div>
-      </div>
     </div>
 
-    <!-- 核心拓扑图画布 -->
-    <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden relative shadow-2xl">
-      <!-- 极简科技感网格背景 -->
-      <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 24px 24px;"></div>
-      
-      <svg viewBox="0 0 800 680" class="w-full h-full min-h-[500px] relative z-10">
-        <!-- 静态连线 -->
-        <g id="static-links"></g>
-        <!-- 动态发光流量路径 -->
-        <g id="active-paths"></g>
-        <!-- 设备节点 -->
-        <g id="nodes-layer"></g>
-        <!-- 动态浮动说明标签 -->
-        <g id="tags-layer"></g>
-      </svg>
+    <div class="topology-container">
+        <!-- SVG绘图区域，使用viewBox实现全局自适应 -->
+        <svg viewBox="0 0 1200 1000" preserveAspectRatio="xMidYMid meet">
+            <defs>
+                <!-- 网格背景 -->
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1"/>
+                </pattern>
+                
+                <!-- 图标集 (使用统一的路径简化) -->
+                <!-- 云端/互联网 -->
+                <g id="icon-cloud" transform="scale(1.2) translate(-12, -12)"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></g>
+                <!-- 建筑/总部 -->
+                <g id="icon-hq" transform="scale(1.1) translate(-12, -12)"><path d="M4 2v20h16V2H4zm14 18H6V4h12v16zm-4-10H8v2h6v-2zm0 4H8v2h6v-2zM8 14v2h2v-2H8zM8 10v2h2v-2H8zM8 6v2h2V6H8z" fill="currentColor"/></g>
+                <!-- 盾牌/防火墙 -->
+                <g id="icon-shield" transform="scale(1.1) translate(-12, -12)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+                <!-- 心跳/行为管理 -->
+                <g id="icon-pulse" transform="scale(1.2) translate(-12, -12)"><path d="M2 12h5l2.5-6 4 13 3-7h5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+                <!-- 核心交换/M-LAG -->
+                <g id="icon-share" transform="scale(1.2) translate(-12, -12)"><circle cx="18" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="6" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="19" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="currentColor" stroke-width="2"/></g>
+                <!-- 桌面终端/OA -->
+                <g id="icon-pc" transform="scale(1.1) translate(-12, -12)"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"/></g>
+                <!-- 工厂/生产 -->
+                <g id="icon-factory" transform="scale(1.2) translate(-12, -12)"><path d="M2 20V8l6 4V8l6 4V4h8v16H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+                <!-- 摄像头/安防 -->
+                <g id="icon-camera" transform="scale(1.1) translate(-12, -12)"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" fill="none" stroke="currentColor" stroke-width="2"/></g>
+                <!-- 无线控制器/WAC -->
+                <g id="icon-wac" transform="scale(1.1) translate(-12, -12)"><path d="M5 12.55a11 11 0 0 1 14.08 0 M1.42 9a16 16 0 0 1 21.16 0 M8.53 16.11a6 6 0 0 1 6.95 0 M12 20h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+                <!-- 无线AP -->
+                <g id="icon-ap" transform="scale(0.9) translate(-12, -12)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" fill="currentColor"/></g>
+                <!-- 移动终端 -->
+                <g id="icon-mobile" transform="scale(1) translate(-12, -12)"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+
+                <!-- 故障红叉 -->
+                <g id="icon-cross"><path d="M-12 -12 L 12 12 M 12 -12 L -12 12" stroke="var(--color-err)" stroke-width="4" stroke-linecap="round"/></g>
+            </defs>
+
+            <!-- 背景网格 -->
+            <rect width="100%" height="100%" fill="url(#grid)" />
+
+            <!-- 1. 静态物理连线层 -->
+            <g id="layer-static-lines">
+                <!-- 垂直骨干链路 -->
+                <path class="static-line" d="M 600 120 L 400 250" /> <!-- Net - FW1 (更新为居中) -->
+                <path class="static-line" d="M 600 120 L 800 250" /> <!-- Net - FW2 (更新为居中) -->
+                <path class="static-line dashed-line" d="M 800 120 L 400 250" /> <!-- HQ - FW1 -->
+                <path class="static-line dashed-line" d="M 800 120 L 800 250" /> <!-- HQ - FW2 -->
+
+                <path class="static-line" d="M 400 250 L 400 400" /> <!-- FW1 - AC1 -->
+                <path class="static-line" d="M 800 250 L 800 400" /> <!-- FW2 - AC2 -->
+                
+                <path class="static-line" d="M 400 400 L 400 550" /> <!-- AC1 - Core1 -->
+                <path class="static-line" d="M 800 400 L 800 550" /> <!-- AC2 - Core2 -->
+
+                <!-- 无线控制器旁挂 (同一侧布局) -->
+                <path class="static-line" d="M 400 550 L 200 480" /> <!-- Core1 - WAC1 -->
+                <path class="static-line" d="M 800 550 L 200 620" /> <!-- Core2 - WAC2 -->
+
+                <!-- 水平冗余链路 -->
+                <path class="static-line dashed-line" d="M 435 250 L 765 250" /> <!-- FW HA -->
+                <text x="600" y="240" class="line-label">HRP 心跳线</text>
+
+                <path class="static-line dashed-line" d="M 435 400 L 765 400" /> <!-- AC Sync -->
+                <text x="600" y="390" class="line-label">同步线</text>
+
+                <path class="static-line dashed-line" stroke-width="4" d="M 435 550 L 765 550" /> <!-- Core Peer-link -->
+                <text x="600" y="540" class="line-label">Peer-link</text>
+
+                <path class="static-line dashed-line" d="M 200 480 L 200 620" /> <!-- WAC HA -->
+                <text x="210" y="555" class="line-label" style="text-anchor: start;">WAC 同步线</text>
+
+                <!-- 接入层双归属链路 -->
+                <!-- Core1 -> Access -->
+                <path class="static-line" d="M 400 550 L 250 760" /> <!-- Core1 - OA -->
+                <path class="static-line" d="M 400 550 L 500 760" /> <!-- Core1 - PR -->
+                <path class="static-line" d="M 400 550 L 750 760" /> <!-- Core1 - POE -->
+                <path class="static-line" d="M 400 550 L 950 760" /> <!-- Core1 - SP -->
+
+                <!-- Core2 -> Access -->
+                <path class="static-line" d="M 800 550 L 250 760" /> <!-- Core2 - OA -->
+                <path class="static-line" d="M 800 550 L 500 760" /> <!-- Core2 - PR -->
+                <path class="static-line" d="M 800 550 L 750 760" /> <!-- Core2 - POE -->
+                <path class="static-line" d="M 800 550 L 950 760" /> <!-- Core2 - SP -->
+
+                <!-- 无线接入链路 -->
+                <path class="static-line" d="M 750 760 L 750 860" /> <!-- POE - AP -->
+                <path class="static-line dashed-line" d="M 750 860 L 650 940" /> <!-- AP - OA WLAN -->
+                <path class="static-line dashed-line" d="M 750 860 L 850 940" /> <!-- AP - PR WLAN -->
+
+                <!-- 预埋隧道标线 (默认隐藏) -->
+                <!-- 修复：移除 static-line 类，使用 tunnel-line，确保粗细设置生效 -->
+                <path id="tunnel-vpn" class="tunnel-line dashed-line stroke-vpn" stroke-width="4" style="opacity: 0;" d="M 400 250 L 800 120" />
+                
+                <!-- 调整 CAPWAP 为粗棕色长方形条状隧道 -->
+                <path id="tunnel-capwap" class="tunnel-line" stroke="var(--color-capwap)" stroke-width="16" stroke-linecap="square" stroke-linejoin="miter" style="opacity: 0;" d="M 750 860 L 750 760 L 400 550 L 200 480" />
+            </g>
+
+            <!-- 2. 动态流量动画层 -->
+            <g id="layer-flows">
+                <!-- 场景2: 办公访问互联网 -->
+                <g class="flow-group" id="flow-oa-net">
+                    <path class="flow-track track-oa" d="M 250 760 L 400 550 L 400 400 L 400 250 L 600 120" />
+                    <path class="flow-path stroke-oa" d="M 250 760 L 400 550 L 400 400 L 400 250 L 600 120" />
+                </g>
+
+                <!-- 场景3: 办公与业务互访 (隔离) -->
+                <g class="flow-group" id="flow-oa-pr">
+                    <path class="flow-track track-oa" d="M 250 760 L 400 550 L 400 400 L 400 250" />
+                    <path class="flow-path stroke-oa" d="M 250 760 L 400 550 L 400 400 L 400 250" />
+                    <path class="flow-track track-pr" d="M 400 250 L 400 400 L 400 550 L 500 760" />
+                    <path class="flow-path stroke-pr" d="M 400 250 L 400 400 L 400 550 L 500 760" />
+                </g>
+
+                <!-- 场景4: 业务访问总部 VPN -->
+                <g class="flow-group" id="flow-vpn">
+                    <path class="flow-track track-oa" d="M 250 760 L 400 550 L 400 400 L 400 250" />
+                    <path class="flow-path stroke-oa" d="M 250 760 L 400 550 L 400 400 L 400 250" />
+                    
+                    <path class="flow-track track-pr" d="M 500 760 L 400 550 L 400 400 L 400 250" />
+                    <path class="flow-path stroke-pr" d="M 500 760 L 400 550 L 400 400 L 400 250" />
+                    
+                    <path class="flow-track track-vpn" d="M 400 250 L 800 120" />
+                    <path class="flow-path stroke-vpn" d="M 400 250 L 800 120" />
+                </g>
+
+                <!-- 场景5/6/7: 故障备份路径 (OA走Core2备线) -->
+                <g class="flow-group" id="flow-backup">
+                    <path class="flow-track track-oa" d="M 250 760 L 800 550 L 800 400 L 800 250 L 600 120" />
+                    <path class="flow-path stroke-oa" d="M 250 760 L 800 550 L 800 400 L 800 250 L 600 120" />
+                </g>
+
+                <!-- 场景7特例: FW1故障, Core1仍存活时的Peer-link绕行 -->
+                <g class="flow-group" id="flow-fw-fail">
+                    <path class="flow-track track-oa" d="M 250 760 L 400 550 L 800 550 L 800 400 L 800 250 L 600 120" />
+                    <path class="flow-path stroke-oa" d="M 250 760 L 400 550 L 800 550 L 800 400 L 800 250 L 600 120" />
+                </g>
+
+                <!-- 场景8: 无线业务流量 -->
+                <g class="flow-group" id="flow-wlan">
+                    <!-- 无线终端 -> AP -> POE -> Core1 -> WAC1 -> Core1 -> AC1 -> FW1 -> Net(居中) -->
+                    <path class="flow-track track-wlan" d="M 650 940 L 750 860 L 750 760 L 400 550 L 200 480 L 400 550 L 400 400 L 400 250 L 600 120" />
+                    <path class="flow-path stroke-wlan" d="M 650 940 L 750 860 L 750 760 L 400 550 L 200 480 L 400 550 L 400 400 L 400 250 L 600 120" />
+                </g>
+            </g>
+
+            <!-- 3. 节点定义层 -->
+            <g id="layer-nodes">
+                <!-- 顶层 -->
+                <g class="node" id="node-net" transform="translate(600, 120)">
+                    <circle class="node-circle" r="35" />
+                    <use href="#icon-cloud" class="node-icon" />
+                    <text y="55" class="node-title">互联网出口</text>
+                    <text y="75" class="node-subtitle">Internet</text>
+                </g>
+
+                <g class="node" id="node-hq" transform="translate(800, 120)">
+                    <circle class="node-circle" r="35" />
+                    <use href="#icon-hq" class="node-icon" />
+                    <text y="55" class="node-title">总部网络</text>
+                    <text y="75" class="node-subtitle">HQ</text>
+                </g>
+
+                <!-- 安全层 -->
+                <g class="node" id="node-fw1" transform="translate(400, 250)">
+                    <circle class="node-circle" r="35" />
+                    <use href="#icon-shield" class="node-icon" />
+                    <use href="#icon-cross" class="error-cross" />
+                    <text y="55" class="node-title">FW1</text>
+                    <text y="75" class="node-subtitle" id="label-fw1-status">(Active)</text>
+                </g>
+
+                <g class="node" id="node-fw2" transform="translate(800, 250)">
+                    <circle class="node-circle" r="35" />
+                    <use href="#icon-shield" class="node-icon" />
+                    <text y="55" class="node-title">FW2</text>
+                    <text y="75" class="node-subtitle" id="label-fw2-status">(Standby)</text>
+                </g>
+
+                <!-- 行为管理层 -->
+                <g class="node" id="node-ac1" transform="translate(400, 400)">
+                    <circle class="node-circle" r="35" />
+                    <use href="#icon-pulse" class="node-icon" />
+                    <use href="#icon-cross" class="error-cross" />
+                    <text y="55" class="node-title">AC1</text>
+                    <text y="75" class="node-subtitle">(深信服Audit)</text>
+                </g>
+
+                <g class="node" id="node-ac2" transform="translate(800, 400)">
+                    <circle class="node-circle" r="35" />
+                    <use href="#icon-pulse" class="node-icon" />
+                    <text y="55" class="node-title">AC2</text>
+                    <text y="75" class="node-subtitle">(深信服Audit)</text>
+                </g>
+
+                <!-- 核心层 -->
+                <g class="node" id="node-core1" transform="translate(400, 550)">
+                    <circle class="node-circle" r="35" />
+                    <use href="#icon-share" class="node-icon" />
+                    <use href="#icon-cross" class="error-cross" />
+                    <text y="55" class="node-title">Core1</text>
+                    <text y="75" class="node-subtitle">(M-LAG)</text>
+                </g>
+
+                <g class="node" id="node-core2" transform="translate(800, 550)">
+                    <circle class="node-circle" r="35" />
+                    <use href="#icon-share" class="node-icon" />
+                    <text y="55" class="node-title">Core2</text>
+                    <text y="75" class="node-subtitle">(M-LAG)</text>
+                </g>
+
+                <!-- 无线控制器 (同侧布局) -->
+                <g class="node" id="node-wac1" transform="translate(200, 480)">
+                    <circle class="node-circle" r="28" />
+                    <use href="#icon-wac" class="node-icon" />
+                    <text y="45" class="node-title">无线AC1</text>
+                </g>
+
+                <g class="node" id="node-wac2" transform="translate(200, 620)">
+                    <circle class="node-circle" r="28" />
+                    <use href="#icon-wac" class="node-icon" />
+                    <text y="45" class="node-title">无线AC2</text>
+                </g>
+
+                <!-- 接入层 -->
+                <g class="node" id="node-oa" transform="translate(250, 760)">
+                    <circle class="node-circle" r="28" />
+                    <use href="#icon-pc" class="node-icon" />
+                    <text y="45" class="node-title">OA 办公接入</text>
+                </g>
+
+                <g class="node" id="node-pr" transform="translate(500, 760)">
+                    <circle class="node-circle" r="28" />
+                    <use href="#icon-factory" class="node-icon" />
+                    <text y="45" class="node-title">PR 生产接入</text>
+                </g>
+
+                <g class="node" id="node-poe" transform="translate(750, 760)">
+                    <circle class="node-circle" r="28" />
+                    <use href="#icon-share" class="node-icon" />
+                    <text y="45" class="node-title">POE 交换机</text>
+                </g>
+
+                <g class="node" id="node-sp" transform="translate(950, 760)">
+                    <circle class="node-circle" r="28" />
+                    <use href="#icon-camera" class="node-icon" />
+                    <text y="45" class="node-title">SP 安防接入</text>
+                </g>
+
+                <!-- AP与无线终端 -->
+                <g class="node" id="node-ap" transform="translate(750, 860)">
+                    <circle class="node-circle" r="20" style="fill: #1a2a47" />
+                    <use href="#icon-ap" class="node-icon" />
+                    <text x="35" y="5" class="node-subtitle" style="text-anchor: start;">室内AP</text>
+                </g>
+
+                <g class="node" id="node-wlan-oa" transform="translate(650, 940)">
+                    <circle class="node-circle" r="20" style="fill: #1a2a47" />
+                    <use href="#icon-mobile" class="node-icon" />
+                    <text y="35" class="node-subtitle">OA无线</text>
+                </g>
+
+                <g class="node" id="node-wlan-pr" transform="translate(850, 940)">
+                    <circle class="node-circle" r="20" style="fill: #1a2a47" />
+                    <use href="#icon-mobile" class="node-icon" />
+                    <text y="35" class="node-subtitle">生产无线</text>
+                </g>
+            </g>
+
+            <!-- 4. 弹出式提示标签层 -->
+            <g id="layer-labels">
+                <!-- 策略隔离标签 -->
+                <g class="pop-label" id="label-acl" transform="translate(340, 200)">
+                    <rect class="label-bg" width="120" height="26" x="0" y="-18"/>
+                    <text x="60" y="0" fill="#ff3333" text-anchor="middle">❌ 隔离策略阻断</text>
+                </g>
+                <!-- VPN加密标签 -->
+                <g class="pop-label" id="label-vpn" transform="translate(530, 160)">
+                    <rect class="label-bg" width="140" height="26" x="0" y="-18"/>
+                    <text x="70" y="0" fill="#d400ff" text-anchor="middle">🔒 IPSec VPN 加密</text>
+                </g>
+                <!-- CAPWAP标签 -->
+                <g class="pop-label" id="label-capwap" transform="translate(450, 680)">
+                    <rect class="label-bg" width="160" height="26" x="0" y="-18"/>
+                    <text x="80" y="0" fill="#00ff66" text-anchor="middle">🟢 无线业务流量</text>
+                </g>
+                <!-- CAPWAP隧道标签 -->
+                <g class="pop-label" id="label-tunnel" transform="translate(620, 720)">
+                    <rect class="label-bg" width="160" height="26" x="0" y="-18"/>
+                    <text x="80" y="0" fill="#b45f06" text-anchor="middle">🟤 CAPWAP 隧道</text>
+                </g>
+            </g>
+
+        </svg>
     </div>
 
-    <!-- 底部场景控制面板 -->
-    <div id="buttons-container" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-4"></div>
-  </div>
+    <div class="controls">
+        <button class="btn active" onclick="setScenario(1)">01 - 重置拓扑视图</button>
+        <button class="btn" onclick="setScenario(2)">02 - 办公访问互联网</button>
+        <button class="btn" onclick="setScenario(3)">03 - 办公与业务互访</button>
+        <button class="btn" onclick="setScenario(4)">04 - 业务访问总部</button>
+        <button class="btn" onclick="setScenario(5)">05 - 核心 Core1 故障</button>
+        <button class="btn" onclick="setScenario(6)">06 - 行为管理 AC1 故障</button>
+        <button class="btn" onclick="setScenario(7)">07 - 防火墙 FW1 故障</button>
+        <button class="btn" onclick="setScenario(8)">08 - 无线流量场景</button>
+    </div>
 
-  <script>
-    // --- 1. 数据配置 (完全同原版) ---
-    const NODES = {
-      Internet: { x: 400, y: 70, icon: 'cloud', label: '互联网出口', subLabel: 'Internet' },
-      HQ: { x: 650, y: 70, icon: 'building', label: '总部网络', subLabel: 'HQ' },
-      FW1: { x: 250, y: 190, icon: 'shield-check', label: 'FW1', subLabel: '(Active)' },
-      FW2: { x: 550, y: 190, icon: 'shield', label: 'FW2', subLabel: '(Standby)' },
-      AC1: { x: 250, y: 300, icon: 'activity', label: 'AC1', subLabel: '(深信服Audit)' },
-      AC2: { x: 550, y: 300, icon: 'activity', label: 'AC2', subLabel: '(深信服Audit)' },
-      Core1: { x: 250, y: 430, icon: 'share-2', label: 'Core1', subLabel: '(M-LAG)' },
-      Core2: { x: 550, y: 430, icon: 'share-2', label: 'Core2', subLabel: '(M-LAG)' },
-      OA: { x: 150, y: 580, icon: 'monitor', label: 'OA 办公接入' },
-      PR: { x: 400, y: 580, icon: 'factory', label: 'PR 生产接入' },
-      SP: { x: 650, y: 580, icon: 'video', label: 'SP 监控接入' },
-    };
+    <script>
+        const scenarios = {
+            1: {
+                title: "正常就绪",
+                desc: "全网拓扑运行正常，主备链路状态良好，等待业务流量接入。",
+                activeFlows: [],
+                failedNodes: [],
+                labels: []
+            },
+            2: {
+                title: "办公访问互联网",
+                desc: "办公终端流量经由 Core1、深信服审计后，从主防火墙 FW1 访问互联网出口。",
+                activeFlows: ["flow-oa-net"],
+                failedNodes: [],
+                labels: []
+            },
+            3: {
+                title: "办公与业务互访 (隔离)",
+                desc: "办公网尝试访问生产网，流量经 Core1 到达 FW1，触发跨安全域隔离策略被阻断。",
+                activeFlows: ["flow-oa-pr"],
+                failedNodes: [],
+                labels: ["label-acl"]
+            },
+            4: {
+                title: "业务访问总部",
+                desc: "办公与生产网同时发往总部，在 FW1 处建立 IPSec VPN 隧道，加密后经公网传输。",
+                activeFlows: ["flow-vpn"],
+                failedNodes: [],
+                labels: ["label-vpn"],
+                specialTunnels: ["tunnel-vpn"]
+            },
+            5: {
+                title: "核心 Core1 故障切换",
+                desc: "Core1 宕机！M-LAG 及路由协议快速收敛，接入层双归属链路立即切换，流量无缝切换至 Core2 处理。",
+                activeFlows: ["flow-backup"],
+                failedNodes: ["node-core1"],
+                labels: []
+            },
+            6: {
+                title: "行为管理 AC1 故障旁路",
+                desc: "深信服 AC1 宕机或 Bypass，流量通过 Core1 与 Core2 的 Peer-link 绕行至 AC2 和 FW2 访问公网。",
+                activeFlows: ["flow-fw-fail"], // 物理绕行路径与FW故障类似
+                failedNodes: ["node-ac1"],
+                labels: []
+            },
+            7: {
+                title: "主防火墙 FW1 故障切换",
+                desc: "主防火墙 FW1 宕机！双机热备 HRP 探测到故障，备机 FW2 升主，流量通过链路层绕行至 FW2 转发。",
+                activeFlows: ["flow-fw-fail"],
+                failedNodes: ["node-fw1"],
+                labels: []
+            },
+            8: {
+                title: "无线流量场景",
+                desc: "建立 CAPWAP 隧道。OA无线终端的流量被封装至 WAC1，解封装后再次进入 Core1，最终路由至 FW1 出口。",
+                activeFlows: ["flow-wlan"],
+                failedNodes: [],
+                labels: ["label-capwap", "label-tunnel"],
+                specialTunnels: ["tunnel-capwap"]
+            }
+        };
 
-    const LINKS = [
-      { source: 'Internet', target: 'FW1', type: 'solid' },
-      { source: 'Internet', target: 'FW2', type: 'solid' },
-      { source: 'FW1', target: 'HQ', type: 'dashed', label: 'IPSec VPN' },
-      { source: 'FW2', target: 'HQ', type: 'dashed' },
-      { source: 'FW1', target: 'FW2', type: 'dashed', label: 'HRP 心跳线' },
-      { source: 'AC1', target: 'AC2', type: 'dashed', label: '同步线' },
-      { source: 'Core1', target: 'Core2', type: 'heavy-dashed', label: 'Peer-link' },
-      { source: 'FW1', target: 'AC1', type: 'solid' },
-      { source: 'FW2', target: 'AC2', type: 'solid' },
-      { source: 'AC1', target: 'Core1', type: 'solid' },
-      { source: 'AC2', target: 'Core2', type: 'solid' },
-      { source: 'Core1', target: 'OA', type: 'solid' },
-      { source: 'Core1', target: 'PR', type: 'solid' },
-      { source: 'Core1', target: 'SP', type: 'solid' },
-      { source: 'Core2', target: 'OA', type: 'solid' },
-      { source: 'Core2', target: 'PR', type: 'solid' },
-      { source: 'Core2', target: 'SP', type: 'solid' },
-    ];
+        function setScenario(id) {
+            // Update UI buttons
+            document.querySelectorAll('.btn').forEach((btn, index) => {
+                if(index === id - 1) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
 
-    const SCENARIOS = [
-      { id: 'normal', name: '01 - 重置拓扑视图', statusName: '正常就绪', desc: '全网拓扑运行正常，主备链路状态良好，等待业务流量接入。', failedNodes: [], paths: [], tags: [] },
-      { id: 'oa_to_pr', name: '02 - 内网跨区互访', statusName: '跨区互访 (OA -> PR)', desc: '办公网访问生产网。流量上送至 FW1 进行安全隔离与审计，校验通过后折返 (U-Turn) 转发。', failedNodes: [], paths: [{ route: ['OA', 'Core1', 'AC1', 'FW1', 'AC1', 'Core1', 'PR'], color: '#38bdf8' }], tags: [{ nodeId: 'FW1', text: '安全策略审计与放行', color: '#4ade80' }] },
-      { id: 'oa_to_internet', name: '03 - 办公访问互联网', statusName: '互联网访问 (OA -> WWW)', desc: '办公区用户正常访问外网，流量经过 AC1 行为审计与主防火墙 FW1 的 NAT 转换。', failedNodes: [], paths: [{ route: ['OA', 'Core1', 'AC1', 'FW1', 'Internet'], color: '#38bdf8' }], tags: [{ nodeId: 'AC1', text: '上网行为审计', color: '#60a5fa' }, { nodeId: 'FW1', text: 'NAT 转换 / IPS', color: '#60a5fa' }] },
-      { id: 'to_hq', name: '04 - 业务访问总部', statusName: 'VPN 分支互联', desc: '办公网与生产网业务并发访问总部，通过主防火墙建立的 IPSec VPN 隧道安全加密回传。', failedNodes: [], paths: [{ route: ['PR', 'Core1', 'AC1', 'FW1', 'HQ'], color: '#fb923c' }, { route: ['OA', 'Core1', 'AC1', 'FW1', 'HQ'], color: '#38bdf8' }], tags: [{ nodeId: 'FW1', text: 'IPSec VPN 隧道加密', color: '#c084fc' }] },
-      { id: 'core1_fail', name: '05 - 核心 Core1 故障', statusName: '模拟故障演练', desc: 'Core1 突发宕机。终端双归属链路感知，流量毫秒级切换至 Core2 继续上行。', failedNodes: ['Core1'], paths: [{ route: ['OA', 'Core2', 'AC2', 'FW2', 'Internet'], color: '#ef4444' }], tags: [{ nodeId: 'Core1', text: '节点宕机不可用', color: '#f87171' }, { nodeId: 'Core2', text: 'M-LAG 流量接管', color: '#4ade80' }] },
-      { id: 'ac1_fail', name: '06 - 行为管理 AC1 故障', statusName: '旁路绕行机制', desc: 'AC1 宕机导致左侧干线受阻。Core1 通过 Peer-link 将流量调度至 Core2 侧上行。', failedNodes: ['AC1'], paths: [{ route: ['OA', 'Core1', 'Core2', 'AC2', 'FW2', 'Internet'], color: '#38bdf8' }], tags: [{ nodeId: 'Core1', text: '跨 Peer-link 调度', color: '#fbbf24' }, { nodeId: 'FW2', text: '备墙升主', color: '#4ade80' }] },
-      { id: 'fw1_fail', name: '07 - 防火墙 FW1 故障', statusName: '安全大脑 HA 切换', desc: '主防火墙宕机，HRP 心跳超时。备用防火墙 FW2 接管业务，Core层自适应调度路径。', failedNodes: ['FW1'], paths: [{ route: ['OA', 'Core1', 'Core2', 'AC2', 'FW2', 'Internet'], color: '#38bdf8' }], tags: [{ nodeId: 'FW1', text: 'HRP 心跳丢失', color: '#f87171' }, { nodeId: 'FW2', text: 'HA 状态切换 (Active)', color: '#4ade80' }] }
-    ];
+            const data = scenarios[id];
 
-    let activeScenarioId = 'normal';
+            // Update texts
+            document.getElementById('mode-text').innerText = data.title;
+            document.getElementById('desc-text').innerText = data.desc;
 
-    // --- 2. 核心渲染逻辑 ---
-    function generatePathD(route) {
-      return route.map((nodeId, i) => {
-        const node = NODES[nodeId];
-        return `${i === 0 ? 'M' : 'L'} ${node.x} ${node.y}`;
-      }).join(' ');
-    }
+            // Reset all flows
+            document.querySelectorAll('.flow-track, .flow-path').forEach(el => {
+                el.classList.remove('flow-active');
+            });
+            document.getElementById('tunnel-vpn').style.opacity = '0';
+            document.getElementById('tunnel-capwap').style.opacity = '0';
 
-    function renderStaticLinks() {
-      const g = document.getElementById('static-links');
-      g.innerHTML = LINKS.map(link => {
-        const source = NODES[link.source];
-        const target = NODES[link.target];
-        const isHeavy = link.type === 'heavy-dashed';
-        const dash = link.type.includes('dashed') ? (isHeavy ? "8,6" : "5,5") : "none";
-        
-        let html = `<line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" stroke="#334155" stroke-width="${isHeavy ? '4' : '2'}" stroke-dasharray="${dash}" class="transition-all duration-500" />`;
-        if (link.label) {
-          html += `<text x="${(source.x + target.x) / 2}" y="${(source.y + target.y) / 2 - 8}" fill="#64748b" font-size="11" text-anchor="middle" class="tracking-wider">${link.label}</text>`;
+            // Reset nodes
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('failed', 'dimmed');
+            });
+            
+            // Reset pop labels
+            document.querySelectorAll('.pop-label').forEach(el => {
+                el.classList.remove('show');
+            });
+
+            // Update fw text statuses
+            document.getElementById('label-fw1-status').innerText = "(Active)";
+            document.getElementById('label-fw1-status').style.fill = "var(--text-sub)";
+            document.getElementById('label-fw2-status').innerText = "(Standby)";
+            document.getElementById('label-fw2-status').style.fill = "var(--text-sub)";
+
+            // Activate flows
+            data.activeFlows.forEach(flowId => {
+                const group = document.getElementById(flowId);
+                if(group) {
+                    group.querySelectorAll('.flow-track, .flow-path').forEach(el => {
+                        el.classList.add('flow-active');
+                    });
+                }
+            });
+
+            // Activate failed nodes and dim others logically connected
+            data.failedNodes.forEach(nodeId => {
+                document.getElementById(nodeId).classList.add('failed');
+                if (nodeId === 'node-fw1') {
+                    document.getElementById('label-fw1-status').innerText = "(Failed)";
+                    document.getElementById('label-fw1-status').style.fill = "var(--color-err)";
+                    document.getElementById('label-fw2-status').innerText = "(Active)";
+                    document.getElementById('label-fw2-status').style.fill = "var(--color-oa)";
+                }
+                // Optional: dim some nodes to show traffic shift
+                if (nodeId === 'node-core1') {
+                    document.getElementById('node-ac1').classList.add('dimmed');
+                    document.getElementById('node-fw1').classList.add('dimmed');
+                }
+            });
+
+            // Activate labels
+            data.labels.forEach(labelId => {
+                document.getElementById(labelId).classList.add('show');
+            });
+
+            // Special tunnels
+            if(data.specialTunnels) {
+                data.specialTunnels.forEach(tid => {
+                    document.getElementById(tid).style.opacity = '1';
+                });
+            }
         }
-        return html;
-      }).join('');
-    }
 
-    function renderScenario() {
-      const activeScenario = SCENARIOS.find(s => s.id === activeScenarioId);
-      
-      // 更新顶部面板
-      document.getElementById('scenario-desc').innerText = activeScenario.desc;
-      document.getElementById('status-name').innerText = activeScenario.statusName;
-      
-      const coreStatusEl = document.getElementById('core-status');
-      if (activeScenario.failedNodes.includes('Core1')) {
-        coreStatusEl.innerText = '单节点降级运行';
-        coreStatusEl.className = 'text-red-400 font-semibold';
-      } else {
-        coreStatusEl.innerText = '双机冗余 (M-LAG)';
-        coreStatusEl.className = 'text-emerald-400 font-semibold';
-      }
-
-      // 渲染动态路径
-      const pathsG = document.getElementById('active-paths');
-      // 强制重绘以重新触发SVG动画
-      pathsG.innerHTML = ''; 
-      setTimeout(() => {
-        pathsG.innerHTML = activeScenario.paths.map(pathObj => {
-          const d = generatePathD(pathObj.route);
-          let html = `
-            <path d="${d}" fill="none" stroke="${pathObj.color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" opacity="0.4" style="filter: drop-shadow(0 0 6px ${pathObj.color})" />
-          `;
-          [0, 0.4, 0.8, 1.2, 1.6].forEach(delay => {
-            html += `
-              <circle r="4" fill="#ffffff" style="filter: drop-shadow(0 0 8px ${pathObj.color})">
-                <animateMotion dur="2.5s" repeatCount="indefinite" path="${d}" begin="${delay}s" />
-              </circle>
-            `;
-          });
-          return html;
-        }).join('');
-      }, 10); // 微小延迟确保DOM刷新触发动画
-
-      // 渲染设备节点
-      const nodesG = document.getElementById('nodes-layer');
-      nodesG.innerHTML = Object.entries(NODES).map(([id, node]) => {
-        const isFailed = activeScenario.failedNodes.includes(id);
-        const isActiveNode = !isFailed && activeScenario.paths.some(p => p.route.includes(id));
-        
-        let html = `<g transform="translate(${node.x}, ${node.y})" class="transition-all duration-500 ${isFailed ? 'opacity-40 grayscale' : ''}">`;
-        
-        if (isActiveNode) {
-          html += `<circle r="32" fill="none" stroke="#38bdf8" stroke-width="2" class="animate-ping opacity-30" />`;
-        }
-        
-        html += `<circle r="26" fill="#1e293b" stroke="${isFailed ? '#ef4444' : '#475569'}" stroke-width="2.5" />`;
-        
-        // 图标通过 foreignObject 嵌入
-        html += `
-          <foreignObject x="-14" y="-14" width="28" height="28">
-            <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center justify-center">
-              <i data-lucide="${node.icon}" class="${isFailed ? 'text-red-500' : 'text-sky-100'} w-[18px] h-[18px]"></i>
-            </div>
-          </foreignObject>
-        `;
-
-        if (isFailed) {
-          html += `
-            <foreignObject x="-16" y="-16" width="32" height="32">
-              <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center justify-center bg-red-900/40 rounded-full">
-                <i data-lucide="alert-circle" class="text-red-500 shadow-xl w-[24px] h-[24px]"></i>
-              </div>
-            </foreignObject>
-          `;
-        }
-
-        html += `<text y="42" fill="#e2e8f0" font-size="13" font-weight="500" text-anchor="middle" class="tracking-wide">${node.label}</text>`;
-        if (node.subLabel) {
-          html += `<text y="58" fill="#94a3b8" font-size="11" text-anchor="middle">${node.subLabel}</text>`;
-        }
-        
-        html += `</g>`;
-        return html;
-      }).join('');
-
-      // 渲染浮动标签
-      const tagsG = document.getElementById('tags-layer');
-      tagsG.innerHTML = activeScenario.tags.map(tag => {
-        const node = NODES[tag.nodeId];
-        return `
-          <foreignObject x="${node.x + 35}" y="${node.y - 20}" width="180" height="60" class="overflow-visible">
-            <div xmlns="http://www.w3.org/1999/xhtml" class="animate-fade-in-up">
-              <div class="inline-block px-3 py-1.5 bg-slate-800/90 backdrop-blur border rounded-lg shadow-xl text-xs font-bold whitespace-nowrap" style="border-color: ${tag.color}; color: ${tag.color}">
-                ${tag.text}
-              </div>
-            </div>
-          </foreignObject>
-        `;
-      }).join('');
-
-      // 激活 Lucide 图标渲染
-      setTimeout(() => {
-        lucide.createIcons();
-      }, 20);
-
-      renderButtons();
-    }
-
-    function renderButtons() {
-      const container = document.getElementById('buttons-container');
-      container.innerHTML = SCENARIOS.map(s => {
-        const isActive = activeScenarioId === s.id;
-        const activeClass = "bg-sky-900/30 border-sky-500 text-sky-300 shadow-[0_0_15px_rgba(14,165,233,0.3)]";
-        const inactiveClass = "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500 hover:text-slate-200";
-        return `
-          <button onclick="setScenario('${s.id}')" class="p-3 rounded-xl border text-sm font-medium transition-all duration-300 flex flex-col items-center justify-center text-center ${isActive ? activeClass : inactiveClass}">
-            ${s.name}
-          </button>
-        `;
-      }).join('');
-    }
-
-    // 全局切换方法供按钮调用
-    window.setScenario = function(id) {
-      activeScenarioId = id;
-      renderScenario();
-    };
-
-    // --- 3. 初始化 ---
-    document.addEventListener('DOMContentLoaded', () => {
-      lucide.createIcons(); // 初始化顶部大标题的图标
-      renderStaticLinks();
-      renderScenario();
-    });
-  </script>
+        // Initialize scene
+        setScenario(1);
+    </script>
 </body>
 </html>
