@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>园区网流量路径逻辑演示</title>
+  
+  <!-- 引入 Tailwind CSS 进行极速样式构建 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Lucide 图标库 -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up {
+      animation: fadeInUp 0.4s ease-out forwards;
+    }
+    /* 保证外国对象(foreignObject)内部HTML正确渲染 */
+    foreignObject { overflow: visible; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-200 font-sans p-6 min-h-screen flex flex-col items-center">
+
+  <div class="w-full max-w-6xl space-y-6">
+    <!-- 顶部状态面板 -->
+    <div class="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-end backdrop-blur-sm">
+      <div>
+        <h1 class="text-2xl font-bold tracking-wider text-white flex items-center">
+          <i data-lucide="activity" class="text-sky-400 mr-3 animate-pulse"></i>
+          园区网流量路径逻辑演示
+        </h1>
+        <p id="scenario-desc" class="text-slate-400 mt-2 text-sm max-w-2xl"></p>
+      </div>
+      <div class="flex space-x-8 mt-4 md:mt-0 text-right">
+        <div>
+          <div class="text-slate-500 text-xs font-medium uppercase tracking-widest">当前模式</div>
+          <div id="status-name" class="text-sky-400 font-semibold"></div>
+        </div>
+        <div>
+          <div class="text-slate-500 text-xs font-medium uppercase tracking-widest">核心状态</div>
+          <div id="core-status" class="font-semibold"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 核心拓扑图画布 -->
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden relative shadow-2xl">
+      <!-- 极简科技感网格背景 -->
+      <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 24px 24px;"></div>
+      
+      <svg viewBox="0 0 800 680" class="w-full h-full min-h-[500px] relative z-10">
+        <!-- 静态连线 -->
+        <g id="static-links"></g>
+        <!-- 动态发光流量路径 -->
+        <g id="active-paths"></g>
+        <!-- 设备节点 -->
+        <g id="nodes-layer"></g>
+        <!-- 动态浮动说明标签 -->
+        <g id="tags-layer"></g>
+      </svg>
+    </div>
+
+    <!-- 底部场景控制面板 -->
+    <div id="buttons-container" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-4"></div>
+  </div>
+
+  <script>
+    // --- 1. 数据配置 (完全同原版) ---
+    const NODES = {
+      Internet: { x: 400, y: 70, icon: 'cloud', label: '互联网出口', subLabel: 'Internet' },
+      HQ: { x: 650, y: 70, icon: 'building', label: '总部网络', subLabel: 'HQ' },
+      FW1: { x: 250, y: 190, icon: 'shield-check', label: 'FW1', subLabel: '(Active)' },
+      FW2: { x: 550, y: 190, icon: 'shield', label: 'FW2', subLabel: '(Standby)' },
+      AC1: { x: 250, y: 300, icon: 'activity', label: 'AC1', subLabel: '(Audit)' },
+      AC2: { x: 550, y: 300, icon: 'activity', label: 'AC2', subLabel: '(Audit)' },
+      Core1: { x: 250, y: 430, icon: 'share-2', label: 'Core1', subLabel: '(M-LAG)' },
+      Core2: { x: 550, y: 430, icon: 'share-2', label: 'Core2', subLabel: '(M-LAG)' },
+      OA: { x: 150, y: 580, icon: 'monitor', label: 'OA 办公接入' },
+      PR: { x: 400, y: 580, icon: 'factory', label: 'PR 生产接入' },
+      SP: { x: 650, y: 580, icon: 'video', label: 'SP 监控接入' },
+    };
+
+    const LINKS = [
+      { source: 'Internet', target: 'FW1', type: 'solid' },
+      { source: 'Internet', target: 'FW2', type: 'solid' },
+      { source: 'FW1', target: 'HQ', type: 'dashed', label: 'IPSec VPN' },
+      { source: 'FW2', target: 'HQ', type: 'dashed' },
+      { source: 'FW1', target: 'FW2', type: 'dashed', label: 'HRP 心跳线' },
+      { source: 'AC1', target: 'AC2', type: 'dashed', label: '同步线' },
+      { source: 'Core1', target: 'Core2', type: 'heavy-dashed', label: 'Peer-link' },
+      { source: 'FW1', target: 'AC1', type: 'solid' },
+      { source: 'FW2', target: 'AC2', type: 'solid' },
+      { source: 'AC1', target: 'Core1', type: 'solid' },
+      { source: 'AC2', target: 'Core2', type: 'solid' },
+      { source: 'Core1', target: 'OA', type: 'solid' },
+      { source: 'Core1', target: 'PR', type: 'solid' },
+      { source: 'Core1', target: 'SP', type: 'solid' },
+      { source: 'Core2', target: 'OA', type: 'solid' },
+      { source: 'Core2', target: 'PR', type: 'solid' },
+      { source: 'Core2', target: 'SP', type: 'solid' },
+    ];
+
+    const SCENARIOS = [
+      { id: 'normal', name: '01 - 重置拓扑视图', statusName: '正常就绪', desc: '全网拓扑运行正常，主备链路状态良好，等待业务流量接入。', failedNodes: [], paths: [], tags: [] },
+      { id: 'oa_to_pr', name: '02 - 内网跨区互访', statusName: '跨区互访 (OA -> PR)', desc: '办公网访问生产网。流量上送至 FW1 进行安全隔离与审计，校验通过后折返 (U-Turn) 转发。', failedNodes: [], paths: [{ route: ['OA', 'Core1', 'AC1', 'FW1', 'AC1', 'Core1', 'PR'], color: '#38bdf8' }], tags: [{ nodeId: 'FW1', text: '安全策略审计与放行', color: '#4ade80' }] },
+      { id: 'oa_to_internet', name: '03 - 办公访问互联网', statusName: '互联网访问 (OA -> WWW)', desc: '办公区用户正常访问外网，流量经过 AC1 行为审计与主防火墙 FW1 的 NAT 转换。', failedNodes: [], paths: [{ route: ['OA', 'Core1', 'AC1', 'FW1', 'Internet'], color: '#38bdf8' }], tags: [{ nodeId: 'AC1', text: '上网行为审计', color: '#60a5fa' }, { nodeId: 'FW1', text: 'NAT 转换 / IPS', color: '#60a5fa' }] },
+      { id: 'to_hq', name: '04 - 业务访问总部', statusName: 'VPN 分支互联', desc: '办公网与生产网业务并发访问总部，通过主防火墙建立的 IPSec VPN 隧道安全加密回传。', failedNodes: [], paths: [{ route: ['PR', 'Core1', 'AC1', 'FW1', 'HQ'], color: '#fb923c' }, { route: ['OA', 'Core1', 'AC1', 'FW1', 'HQ'], color: '#38bdf8' }], tags: [{ nodeId: 'FW1', text: 'IPSec VPN 隧道加密', color: '#c084fc' }] },
+      { id: 'core1_fail', name: '05 - 核心 Core1 故障', statusName: '模拟故障演练', desc: 'Core1 突发宕机。终端双归属链路感知，流量毫秒级切换至 Core2 继续上行。', failedNodes: ['Core1'], paths: [{ route: ['OA', 'Core2', 'AC2', 'FW2', 'Internet'], color: '#ef4444' }], tags: [{ nodeId: 'Core1', text: '节点宕机不可用', color: '#f87171' }, { nodeId: 'Core2', text: 'M-LAG 流量接管', color: '#4ade80' }] },
+      { id: 'ac1_fail', name: '06 - 行为管理 AC1 故障', statusName: '旁路绕行机制', desc: 'AC1 宕机导致左侧干线受阻。Core1 通过 Peer-link 将流量调度至 Core2 侧上行。', failedNodes: ['AC1'], paths: [{ route: ['OA', 'Core1', 'Core2', 'AC2', 'FW2', 'Internet'], color: '#38bdf8' }], tags: [{ nodeId: 'Core1', text: '跨 Peer-link 调度', color: '#fbbf24' }, { nodeId: 'FW2', text: '备墙升主', color: '#4ade80' }] },
+      { id: 'fw1_fail', name: '07 - 防火墙 FW1 故障', statusName: '安全大脑 HA 切换', desc: '主防火墙宕机，HRP 心跳超时。备用防火墙 FW2 接管业务，Core层自适应调度路径。', failedNodes: ['FW1'], paths: [{ route: ['OA', 'Core1', 'Core2', 'AC2', 'FW2', 'Internet'], color: '#38bdf8' }], tags: [{ nodeId: 'FW1', text: 'HRP 心跳丢失', color: '#f87171' }, { nodeId: 'FW2', text: 'HA 状态切换 (Active)', color: '#4ade80' }] }
+    ];
+
+    let activeScenarioId = 'normal';
+
+    // --- 2. 核心渲染逻辑 ---
+    function generatePathD(route) {
+      return route.map((nodeId, i) => {
+        const node = NODES[nodeId];
+        return `${i === 0 ? 'M' : 'L'} ${node.x} ${node.y}`;
+      }).join(' ');
+    }
+
+    function renderStaticLinks() {
+      const g = document.getElementById('static-links');
+      g.innerHTML = LINKS.map(link => {
+        const source = NODES[link.source];
+        const target = NODES[link.target];
+        const isHeavy = link.type === 'heavy-dashed';
+        const dash = link.type.includes('dashed') ? (isHeavy ? "8,6" : "5,5") : "none";
+        
+        let html = `<line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" stroke="#334155" stroke-width="${isHeavy ? '4' : '2'}" stroke-dasharray="${dash}" class="transition-all duration-500" />`;
+        if (link.label) {
+          html += `<text x="${(source.x + target.x) / 2}" y="${(source.y + target.y) / 2 - 8}" fill="#64748b" font-size="11" text-anchor="middle" class="tracking-wider">${link.label}</text>`;
+        }
+        return html;
+      }).join('');
+    }
+
+    function renderScenario() {
+      const activeScenario = SCENARIOS.find(s => s.id === activeScenarioId);
+      
+      // 更新顶部面板
+      document.getElementById('scenario-desc').innerText = activeScenario.desc;
+      document.getElementById('status-name').innerText = activeScenario.statusName;
+      
+      const coreStatusEl = document.getElementById('core-status');
+      if (activeScenario.failedNodes.includes('Core1')) {
+        coreStatusEl.innerText = '单节点降级运行';
+        coreStatusEl.className = 'text-red-400 font-semibold';
+      } else {
+        coreStatusEl.innerText = '双机冗余 (M-LAG)';
+        coreStatusEl.className = 'text-emerald-400 font-semibold';
+      }
+
+      // 渲染动态路径
+      const pathsG = document.getElementById('active-paths');
+      // 强制重绘以重新触发SVG动画
+      pathsG.innerHTML = ''; 
+      setTimeout(() => {
+        pathsG.innerHTML = activeScenario.paths.map(pathObj => {
+          const d = generatePathD(pathObj.route);
+          let html = `
+            <path d="${d}" fill="none" stroke="${pathObj.color}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" opacity="0.4" style="filter: drop-shadow(0 0 6px ${pathObj.color})" />
+          `;
+          [0, 0.4, 0.8, 1.2, 1.6].forEach(delay => {
+            html += `
+              <circle r="4" fill="#ffffff" style="filter: drop-shadow(0 0 8px ${pathObj.color})">
+                <animateMotion dur="2.5s" repeatCount="indefinite" path="${d}" begin="${delay}s" />
+              </circle>
+            `;
+          });
+          return html;
+        }).join('');
+      }, 10); // 微小延迟确保DOM刷新触发动画
+
+      // 渲染设备节点
+      const nodesG = document.getElementById('nodes-layer');
+      nodesG.innerHTML = Object.entries(NODES).map(([id, node]) => {
+        const isFailed = activeScenario.failedNodes.includes(id);
+        const isActiveNode = !isFailed && activeScenario.paths.some(p => p.route.includes(id));
+        
+        let html = `<g transform="translate(${node.x}, ${node.y})" class="transition-all duration-500 ${isFailed ? 'opacity-40 grayscale' : ''}">`;
+        
+        if (isActiveNode) {
+          html += `<circle r="32" fill="none" stroke="#38bdf8" stroke-width="2" class="animate-ping opacity-30" />`;
+        }
+        
+        html += `<circle r="26" fill="#1e293b" stroke="${isFailed ? '#ef4444' : '#475569'}" stroke-width="2.5" />`;
+        
+        // 图标通过 foreignObject 嵌入
+        html += `
+          <foreignObject x="-14" y="-14" width="28" height="28">
+            <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center justify-center">
+              <i data-lucide="${node.icon}" class="${isFailed ? 'text-red-500' : 'text-sky-100'} w-[18px] h-[18px]"></i>
+            </div>
+          </foreignObject>
+        `;
+
+        if (isFailed) {
+          html += `
+            <foreignObject x="-16" y="-16" width="32" height="32">
+              <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex items-center justify-center bg-red-900/40 rounded-full">
+                <i data-lucide="alert-circle" class="text-red-500 shadow-xl w-[24px] h-[24px]"></i>
+              </div>
+            </foreignObject>
+          `;
+        }
+
+        html += `<text y="42" fill="#e2e8f0" font-size="13" font-weight="500" text-anchor="middle" class="tracking-wide">${node.label}</text>`;
+        if (node.subLabel) {
+          html += `<text y="58" fill="#94a3b8" font-size="11" text-anchor="middle">${node.subLabel}</text>`;
+        }
+        
+        html += `</g>`;
+        return html;
+      }).join('');
+
+      // 渲染浮动标签
+      const tagsG = document.getElementById('tags-layer');
+      tagsG.innerHTML = activeScenario.tags.map(tag => {
+        const node = NODES[tag.nodeId];
+        return `
+          <foreignObject x="${node.x + 35}" y="${node.y - 20}" width="180" height="60" class="overflow-visible">
+            <div xmlns="http://www.w3.org/1999/xhtml" class="animate-fade-in-up">
+              <div class="inline-block px-3 py-1.5 bg-slate-800/90 backdrop-blur border rounded-lg shadow-xl text-xs font-bold whitespace-nowrap" style="border-color: ${tag.color}; color: ${tag.color}">
+                ${tag.text}
+              </div>
+            </div>
+          </foreignObject>
+        `;
+      }).join('');
+
+      // 激活 Lucide 图标渲染
+      setTimeout(() => {
+        lucide.createIcons();
+      }, 20);
+
+      renderButtons();
+    }
+
+    function renderButtons() {
+      const container = document.getElementById('buttons-container');
+      container.innerHTML = SCENARIOS.map(s => {
+        const isActive = activeScenarioId === s.id;
+        const activeClass = "bg-sky-900/30 border-sky-500 text-sky-300 shadow-[0_0_15px_rgba(14,165,233,0.3)]";
+        const inactiveClass = "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:border-slate-500 hover:text-slate-200";
+        return `
+          <button onclick="setScenario('${s.id}')" class="p-3 rounded-xl border text-sm font-medium transition-all duration-300 flex flex-col items-center justify-center text-center ${isActive ? activeClass : inactiveClass}">
+            ${s.name}
+          </button>
+        `;
+      }).join('');
+    }
+
+    // 全局切换方法供按钮调用
+    window.setScenario = function(id) {
+      activeScenarioId = id;
+      renderScenario();
+    };
+
+    // --- 3. 初始化 ---
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons(); // 初始化顶部大标题的图标
+      renderStaticLinks();
+      renderScenario();
+    });
+  </script>
+</body>
+</html>
